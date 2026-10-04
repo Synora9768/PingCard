@@ -283,15 +283,25 @@ npm run verify:live -- \
   --base "$BASE" \
   --notify-secret "$NOTIFY_SECRET" \
   --admin-secret "$ADMIN_SECRET" \
-  --user "" \
-  --json
+  --json | tee /tmp/verify-live.json
+
+node -e "const r=require('/tmp/verify-live.json'); console.log(r.ok?'✅ ok':'❌ '+r.failures.join(' | '), 'passed='+r.passed, 'failed='+r.failed, 'skipped='+r.skipped)"
 ```
 
-**通过标准**：`"ok": true`、`"failed": 0`。逐项期望值：
+**通过标准（此时还没有真实订阅者）**：
+
+```
+✅ ok passed=21 failed=0 skipped=1
+```
+
+> 唯一被 skip 的是 `GET /api/status 定向查询`——它需要一个真实 User ID，而 User ID 只有用户的浏览器订阅成功后才会生成（见 8.3）。
+> 第 8.3 步拿到 User ID 后**再跑一次**，加上 `--user "<User ID>"`，此时应得到 `ok=true, passed=23, failed=0, skipped=0`。
+
+逐项期望值（共 24 行结果 + 1 行 `note` 诊断信息）：
 
 | 检查项 | 期望 |
 |---|---|
-| `GET / 返回设置页` | pass（HTTP 200，含「我的 User ID」） |
+| `GET / 返回设置页` | pass（HTTP 200） |
 | `GET /sw.js 可用` | pass |
 | `中文字体子集已部署` | pass，**827 KiB** 量级 |
 | `GET /api/config 返回 VAPID 公钥` | pass |
@@ -303,15 +313,22 @@ npm run verify:live -- \
 | `GET /api/users 无鉴权 → 403` | pass |
 | `ADMIN_SECRET 有效` | pass |
 | `自检全部通过（无 fail 项）` | pass，**13 项** |
-| `至少存在一个模板` / `默认模板已设置` | pass（`t_demo`） |
-| `NOTIFY_SECRET 有效` | pass |
+| `至少存在一个模板` | pass（`t_demo`） |
+| `默认模板已设置` | pass |
+| `NOTIFY_SECRET 有效` | pass（`dryRun 通过，目标设备 N 台`） |
 | `dryRun 生成了签名卡片链接` | pass（含 `sig=`） |
-| `签名链接可渲染出 PNG` | pass，**1024x512** |
-| `渲染耗时已上报` | pass（首次几十~几百 ms） |
+| `签名链接可渲染出 PNG` | pass，**200 image/png · 1024x512** |
+| `渲染耗时已上报` | pass（`X-PingCard-Render-Ms` 存在；首次冷渲染几十~几百 ms） |
 | `重复请求命中缓存` | pass，**`cache=HIT` 且 `render-ms=0`** |
 | `过期签名被拒绝 → 403` | pass |
+| `GET /api/status?userId=… 可用` | 有 `--user` 时 pass |
+| `status 不泄露原始 endpoint` | 有 `--user` 时 pass（只回 `endpointHost`） |
+| `GET /api/users 可用` | 有 `--user` 时 pass（`用户 N 个 / 活跃设备 M`） |
 
-若有 `skip`：说明该 secret 没传（带 `--notify-secret`/`--admin-secret` 重跑补齐）。
+若 `failed > 0`：退出码为 1，`failures[]` 里给出每项的判定详情 → 查第 9 节。
+
+> 该脚本是**只读**的：不会写入订阅、不会改模板、不会真发推送（`dryRun: true`）。
+> 可安全地对生产环境反复执行。
 
 ### 8.2 交付前自证「能发推送」
 
@@ -353,6 +370,15 @@ fetch(j.imageUrl).then(async r=>console.log('card-image:',r.status,r.headers.get
 ````
 
 若 `sent: 0` / `failed: 1`，加 `"debug": true` 重发，按第 9 节排查。
+
+拿到 User ID 后**补跑一次验收**，把 skip 清零：
+
+```bash
+npm run verify:live -- --base "$BASE" \
+  --notify-secret "$NOTIFY_SECRET" --admin-secret "$ADMIN_SECRET" \
+  --user "<上面拿到的 User ID>" --json
+# 期望：ok=true, passed=23, failed=0, skipped=0
+```
 
 ### 8.4 回报格式（Agent → 人类）
 
