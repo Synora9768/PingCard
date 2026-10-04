@@ -695,8 +695,12 @@ npm run smoke # 63 项端到端断言：真实启动 wrangler pages dev + 本地
    高频推送建议复用相同变量以命中 Cache API（相同参数的卡片只渲染一次）。
 7. **D1 并发**：订阅写入是单条 upsert（`ON CONFLICT(endpoint)`），广播推送的失效清理按 endpoint 逐条删除；
    极大订阅量（数万）下单次 `/api/notify` 可能触及 Worker 请求时限，建议分批调用（同一 `topic` 可覆盖更新）。
-8. **本地开发的 Push 测试**：`localhost` 可以订阅并调用接口，但推送服务不会把消息投递到一个
-   无法从公网回访的本地浏览器（除非使用内网穿透）。建议部署到 Pages 预览环境做端到端验证。
+8. **本地开发的 Push 测试**：`localhost` 可以完成订阅、签名、渲染、缓存的全链路验证，
+   但**最后一步投递**（Worker → FCM/APNs/Mozilla 推送端点）需要 Worker 具备出站网络访问。
+   在受限网络（离线环境、只允许 npm 的沙箱、企业代理）里 `POST /api/notify` 会把每台设备记入
+   `failed` 并在 `debug: true` 时给出 `fetch failed` 之类的网络原因 —— 这是环境限制，不是实现问题。
+   要完成真正的端到端推送，请部署到你自己的 Cloudflare 账号（Workers 可自由出站），
+   或在本地用内网穿透 + `wrangler pages dev` 组合调试。
 9. **`wrangler pages dev` 不读取自定义 `[[rules]]`**：字体必须走 `.bin` + `env.ASSETS` 回退方案，
    已在 [10.4](#104-字体如何进入-worker) 说明；如果你换用自建打包流程，注意保持这两种途径之一可用。
 
@@ -738,6 +742,7 @@ npm run smoke # 63 项端到端断言：真实启动 wrangler pages dev + 本地
 | 推送返回 401/403（来自推送服务） | VAPID 密钥不匹配或 `VAPID_SUBJECT` 不是 `mailto:`/`https://`；用「运行环境自检」确认 |
 | 通知没有大图 | 当前浏览器忽略 `image`（Firefox / 部分 Safari），见 [已知限制 §2](#12-已知限制) |
 | 订阅成功但收不到通知 | 检查 `notify_logs.sent_count`；`failed_count > 0` 时给 `/api/notify` 加 `"debug": true` 查看每台设备的失败原因 |
+| `/api/notify` 返回 `failed` 且原因是 `fetch failed` | 运行环境无法访问推送服务端点（FCM / APNs / Mozilla）。部署到 Cloudflare 后即可正常投递 |
 | 模板保存报 `Expected <div> to have explicit "display: flex"` | 容器有多个子节点却没写 `display: flex` |
 | 模板渲染报 `Image size cannot be determined` | `<img>` 未指定 `width` / `height` |
 | 后台打开就跳登录 | 会话过期（12 小时）或 `ADMIN_SECRET` 已变更，重新登录即可 |
