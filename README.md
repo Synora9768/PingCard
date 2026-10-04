@@ -23,7 +23,7 @@
 - [7. API 参考](#7-api-参考)
 - [8. curl 调用示例](#8-curl-调用示例)
 - [9. 模板编写指南](#9-模板编写指南)
-- [10. 依赖选型与 Workers 兼容性验证](#10-依赖选型与-workers-兼容性验证)
+- [10. 依赖选型、Workers 兼容性与 FCM 说明](#10-依赖选型与-workers-兼容性验证)
 - [11. 测试](#11-测试)
 - [12. 已知限制](#12-已知限制)
 - [13. 验收标准对照](#13-验收标准对照)
@@ -628,7 +628,56 @@ DEFAULT_MODULE_RULES = [
 所以字体以 `.bin` 形式放在 `functions/_lib/fonts/` 下，被映射为 `ArrayBuffer` 模块；
 `_lib/fonts.js` 优先使用它，失败时回退到 `env.ASSETS` 读取 `public/fonts/*.woff`。
 
-### 10.5 实测数据（`wrangler pages dev`，本机）
+### 10.5 需要单独「对接 FCM」吗？
+
+**不需要。** Chrome / Edge（Android 与桌面）订阅时会返回一个
+`https://fcm.googleapis.com/fcm/send/…` 的 endpoint，FCM 在这里扮演的是**推送服务（push service）**的角色，
+而我们作为**应用服务器**只需按标准 Web Push 协议往这个 endpoint POST。因此：
+
+- ❌ 不需要 Firebase 项目、`google-services.json`、FCM server key / legacy HTTP API
+- ❌ 不需要 Firebase Admin SDK（那是给原生 App 推消息用的另一套东西）
+- ✅ 浏览器把 endpoint 交给我们，我们签名 + 加密后 POST 过去即可（本仓库的 `_lib/webpush.js`）
+
+FCM 对 Web Push 请求的硬性要求，本实现逐条满足（可用 `npm run smoke` / `node -e` 复现请求头）：
+
+| FCM 的要求 | 本实现 |
+|---|---|
+| `Authorization: vapid t=<JWT>, k=<公钥>` | ✅ `_lib/webpush.js#vapidAuthorizationHeader` |
+| JWT `aud` 必须等于 endpoint 的 origin（`https://fcm.googleapis.com`） | ✅ 由 `new URL(endpoint).origin` 自动推导，无需配置 |
+| JWT `exp` ≤ 24 小时 | ✅ 固定 12 小时 |
+| `Content-Encoding: aes128gcm` | ✅ |
+| 必须有 `TTL` 头 | ✅ 默认 4 周，可用请求体 `ttl` 覆盖 |
+| 载荷上限 4096 字节 | ✅ 明文超过 4096 直接返回 `413`；典型载荷（标题+正文+卡片 URL）约 300–1000 字节 |
+| 订阅失效返回 `404`/`410` | ✅ 自动删除该订阅记录并计入 `cleaned` |
+| 限流/临时故障返回 `429`/`5xx` | ✅ 标记为可重试（`interpretPushResponse().retryable`），不计入 `cleaned` |
+
+在本地验证「发给 FCM 的请求长什么样」（不需要网络，也不需要 FCM 账号）：
+
+```bash
+node -e "
+import('./functions/_lib/webpush.js').then(async ({ buildPushRequest, parseVapidKeys }) => {
+  const ua = await crypto.subtle.generateKey({ name: 'ECDH', namedCurve: 'P-256' }, true, ['deriveBits']);
+  const request = await buildPushRequest({
+    subscription: {
+      endpoint: 'https://fcm.googleapis.com/fcm/send/example-token',
+      keys: {
+        p256dh: Buffer.from(new Uint8Array(await crypto.subtle.exportKey('raw', ua.publicKey))).toString('base64url'),
+        auth: Buffer.alloc(16, 3).toString('base64url'),
+      },
+    },
+    payload: JSON.stringify({ title: 'hi' }),
+    vapid: parseVapidKeys({ publicKey: process.env.VAPID_PUBLIC_KEY, privateKey: process.env.VAPID_PRIVATE_KEY, subject: 'mailto:you@example.com' }),
+  });
+  console.log(request.method, request.url);
+  for (const [k, v] of request.headers) console.log(' ', k + ':', v.slice(0, 60));
+});"
+```
+
+输出中 `authorization` 里的 JWT 解出来是 `{"aud":"https://fcm.googleapis.com", …}` —— 这正是 FCM 校验的字段。
+若 FCM 返回 **401/403**，几乎总是 VAPID 公私钥不匹配或 `VAPID_SUBJECT` 不是 `mailto:`/`https://`；
+本仓库的「运行环境自检」(`GET /api/admin/checklist`) 会先把这两个问题挡在前面。
+
+### 10.6 实测数据（`wrangler pages dev`，本机）
 
 | 项目 | 结果 |
 |---|---|
@@ -761,6 +810,9 @@ npm run verify:live -- --base https://pingcard.pages.dev \
 | 通知没有大图 | 当前浏览器忽略 `image`（Firefox / 部分 Safari），见 [已知限制 §2](#12-已知限制) |
 | 订阅成功但收不到通知 | 检查 `notify_logs.sent_count`；`failed_count > 0` 时给 `/api/notify` 加 `"debug": true` 查看每台设备的失败原因 |
 | `/api/notify` 返回 `failed` 且原因是 `fetch failed` | 运行环境无法访问推送服务端点（FCM / APNs / Mozilla）。部署到 Cloudflare 后即可正常投递 |
+| FCM 返回 `401`/`403` | VAPID 公私钥不匹配，或 `VAPID_SUBJECT` 不是 `mailto:`/`https://` 前缀；跑一次「运行环境自检」即可定位 |
+| FCM 返回 `413` | 载荷过大（上限 4096 字节）。卡片渲染场景通常只有几百字节，若确实很大请缩短标题/正文 |
+| FCM 返回 `429` | 被限流；错误已标记为可重试，稍后重发同一条即可（`topic` 相同的通知会覆盖显示） |
 | 模板保存报 `Expected <div> to have explicit "display: flex"` | 容器有多个子节点却没写 `display: flex` |
 | 模板渲染报 `Image size cannot be determined` | `<img>` 未指定 `width` / `height` |
 | 后台打开就跳登录 | 会话过期（12 小时）或 `ADMIN_SECRET` 已变更，重新登录即可 |

@@ -61,13 +61,22 @@ async function jsonRequest(pathname, options = {}) {
 
 /* --------------------------------------------------------------- fixtures */
 
+// Endpoint shapes mirror reality: Chrome/Edge land on FCM, Firefox on Mozilla,
+// Safari on Apple. (Push delivery itself needs outbound network, which CI/sandbox
+// environments may not have — see README "已知限制" #8.)
+const PUSH_HOSTS = [
+  'https://fcm.googleapis.com/fcm/send/',
+  'https://updates.push.services.mozilla.com/wpush/v2/',
+  'https://web.push.apple.com/',
+];
+
 function fakeSubscription(index) {
   const point = new Uint8Array(65);
   point[0] = 4;
   for (let i = 1; i < 65; i++) point[i] = (i * (index + 1)) % 256;
   const auth = new Uint8Array(16).fill(index + 3);
   return {
-    endpoint: `https://push.example.com/smoke/${'endpoint'.repeat(4)}-${index}`,
+    endpoint: `${PUSH_HOSTS[index % PUSH_HOSTS.length]}${'smoke'.repeat(9)}-${index}`,
     keys: {
       p256dh: Buffer.from(point).toString('base64url'),
       auth: Buffer.from(auth).toString('base64url'),
