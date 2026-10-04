@@ -660,7 +660,25 @@ npm run smoke # 63 项端到端断言：真实启动 wrangler pages dev + 本地
 | Web Push | **与 `http_ece` 参考实现逐字节一致**、双向互操作、订阅端解密、记录结构（rs/idlen/delimiter）、VAPID JWT 用公钥验签 |
 | 模板检查 | 不支持标签、无占位符、`position: fixed` 等 lint 规则 |
 
-`npm run smoke` 覆盖 61 项断言，包括：
+`npm run verify:live` 对**已部署的线上环境**做一次只读验收（不写订阅、不改模板、不真正发送推送），
+适合上线后随时自证，也适合把「推送链路是否正常」交给非开发者执行：
+
+```bash
+BASE=https://pingcard.pages.dev \
+NOTIFY_SECRET=xxx ADMIN_SECRET=yyy USER_ID=zhangsan \
+npm run verify:live
+
+# 或显式传参
+npm run verify:live -- --base https://pingcard.pages.dev \
+  --notify-secret "$NOTIFY_SECRET" --admin-secret "$ADMIN_SECRET" --user zhangsan
+```
+
+检查项（23 项）：站点与 SW/字体可用、`/api/config` 的 VAPID 公钥是合法 P-256 点、
+`/api/notify` 与 `/api/card-image`、`/api/users` 对未授权请求分别返回 401/403、
+管理员 13 项自检无 fail、默认模板存在、用 dryRun 走通「签名 → 渲染 PNG → 缓存命中 → 过期签名 403」全过程。
+缺少某个 secret 时对应检查会标记为「跳过」而不是失败。
+
+`npm run smoke`（本地，含 D1 写入）覆盖 63 项断言，包括：
 
 - 静态资源与 `/api/config`
 - 订阅 / 重复订阅幂等 / 状态查询 / 非法 User ID
@@ -746,6 +764,7 @@ npm run smoke # 63 项端到端断言：真实启动 wrangler pages dev + 本地
 | 模板保存报 `Expected <div> to have explicit "display: flex"` | 容器有多个子节点却没写 `display: flex` |
 | 模板渲染报 `Image size cannot be determined` | `<img>` 未指定 `width` / `height` |
 | 后台打开就跳登录 | 会话过期（12 小时）或 `ADMIN_SECRET` 已变更，重新登录即可 |
+| 升级后内置示例模板没变化 | `schema.sql` 的种子语句是 `INSERT ... WHERE NOT EXISTS`，不会覆盖已存在的 `t_demo`。在后台删掉重建，或执行 `DELETE FROM templates WHERE id='t_demo'` 后重新执行 `schema.sql` |
 
 需要看线上日志：
 

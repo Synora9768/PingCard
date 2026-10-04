@@ -15,7 +15,8 @@
     "db:remote": "wrangler d1 execute pingcard --remote --file=./schema.sql",
     "logs": "wrangler pages deployment tail",
     "test": "node --test test/unit.test.mjs",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "verify:live": "node scripts/verify-live.mjs"
   },
   "dependencies": {
     "@cf-wasm/satori": "^0.4.2",
