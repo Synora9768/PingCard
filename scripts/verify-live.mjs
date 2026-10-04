@@ -22,9 +22,12 @@ const BASE = (argOf('base') || process.env.BASE || '').replace(/\/+$/, '');
 const NOTIFY_SECRET = argOf('notify-secret') || process.env.NOTIFY_SECRET || '';
 const ADMIN_SECRET = argOf('admin-secret') || process.env.ADMIN_SECRET || '';
 const USER_ID = argOf('user') || process.env.USER_ID || '';
+const JSON_MODE = args.includes('--json');
 
 if (!BASE) {
-  console.error('用法: npm run verify:live -- --base https://你的域名 [--notify-secret …] [--admin-secret …] [--user 某个UserID]');
+  console.error(
+    '用法: npm run verify:live -- --base https://你的域名 [--notify-secret …] [--admin-secret …] [--user 某个UserID] [--json]',
+  );
   process.exit(2);
 }
 if (!/^https?:\/\//.test(BASE)) {
@@ -36,25 +39,35 @@ let passed = 0;
 let failed = 0;
 let skipped = 0;
 const failures = [];
+/** @type {Array<{name: string, status: 'pass'|'fail'|'skip'|'note', detail: string}>} */
+const results = [];
 
 function check(name, ok, detail = '') {
+  results.push({ name, status: ok ? 'pass' : 'fail', detail });
   if (ok) {
     passed += 1;
-    console.log(`  ✓ ${name}${detail ? ` — ${detail}` : ''}`);
+    if (!JSON_MODE) console.log(`  ✓ ${name}${detail ? ` — ${detail}` : ''}`);
   } else {
     failed += 1;
     failures.push(`${name}${detail ? ` — ${detail}` : ''}`);
-    console.log(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
+    if (!JSON_MODE) console.log(`  ✗ ${name}${detail ? ` — ${detail}` : ''}`);
   }
 }
 
 function skip(name, why) {
   skipped += 1;
-  console.log(`  – ${name}（跳过：${why}）`);
+  results.push({ name, status: 'skip', detail: why });
+  if (!JSON_MODE) console.log(`  – ${name}（跳过：${why}）`);
+}
+
+/** 供人阅读的补充说明（自检警告、提示等），JSON 模式下作为 note 返回。 */
+function note(text) {
+  results.push({ name: text, status: 'note', detail: '' });
+  if (!JSON_MODE) console.log(text);
 }
 
 function section(title) {
-  console.log(`\n${title}`);
+  if (!JSON_MODE) console.log(`\n${title}`);
 }
 
 async function getJson(path, options = {}) {
@@ -81,8 +94,10 @@ function sampleVariablesFromSchema(schema) {
 }
 
 async function main() {
-  console.log(`PingCard 线上验收 — ${BASE}`);
-  console.log('='.repeat(60));
+  if (!JSON_MODE) {
+    console.log(`PingCard 线上验收 — ${BASE}`);
+    console.log('='.repeat(60));
+  }
 
   /* --------------------------------------------------------- 静态与配置 */
   section('1. 站点与配置');
@@ -154,7 +169,7 @@ async function main() {
         bad.length ? bad.map((row) => `${row.label}: ${row.detail}`).join(' | ') : `${rows.length} 项`,
       );
       for (const row of rows.filter((entry) => entry.status === 'warn')) {
-        console.log(`    ⚠ ${row.label} — ${row.detail}`);
+        note(`    ⚠ ${row.label} — ${row.detail}`);
       }
     }
 
@@ -187,7 +202,7 @@ async function main() {
     if ((dry.response.status === 400 || dry.response.status === 422) && defaultTemplate) {
       const samples = sampleVariablesFromSchema(defaultTemplate.variablesSchema);
       if (Object.keys(samples).length) {
-        console.log(`    ℹ 首次 dryRun 返回 ${dry.response.status}（${dry.body?.error || ''}），改用模板 schema 生成的测试变量重试`);
+        note(`    ℹ 首次 dryRun 返回 ${dry.response.status}（${dry.body?.error || ''}），改用模板 schema 生成的测试变量重试`);
         dry = await callNotify({ ...baseBody, variables: samples });
       }
     }
@@ -208,7 +223,7 @@ async function main() {
         `dryRun 通过，目标设备 ${dry.body?.total ?? 0} 台${USER_ID ? `（userId=${USER_ID}）` : ''}`,
       );
       if (!USER_ID) {
-        console.log('    ℹ 未提供 --user，目标数是广播口径；加 --user <ID> 可验证定向推送');
+        note('    ℹ 未提供 --user，目标数是广播口径；加 --user <ID> 可验证定向推送');
       }
 
       const imageUrl = String(dry.body?.imageUrl || '');
@@ -273,6 +288,26 @@ async function main() {
   }
 
   /* ------------------------------------------------------------- 汇总 */
+  if (JSON_MODE) {
+    console.log(
+      JSON.stringify(
+        {
+          base: BASE,
+          ok: failed === 0,
+          passed,
+          failed,
+          skipped,
+          results,
+          failures,
+          skippedChecks: results.filter((row) => row.status === 'skip').map((row) => row.name),
+        },
+        null,
+        2,
+      ),
+    );
+    return failed === 0 ? 0 : 1;
+  }
+
   console.log(`\n${failed === 0 ? '✅ 全部通过' : '❌ 存在失败项'} — 通过 ${passed}，失败 ${failed}${skipped ? `，跳过 ${skipped}` : ''}`);
   if (failures.length) {
     console.log('\n失败项：');

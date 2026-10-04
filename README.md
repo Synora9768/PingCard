@@ -17,7 +17,7 @@
 - [1. 功能概览](#1-功能概览)
 - [2. 目录结构](#2-目录结构)
 - [3. 本地开发](#3-本地开发)
-- [4. 部署到 Cloudflare Pages](#4-部署到-cloudflare-pages)
+- [4. 部署到 Cloudflare Pages](#4-部署到-cloudflare-pages)（Agent/运维请用 **[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)**）
 - [5. 环境变量与密钥](#5-环境变量与密钥)
 - [6. 中文字体](#6-中文字体)
 - [7. API 参考](#7-api-参考)
@@ -127,6 +127,10 @@ DEFAULT_BADGE_URL=/icons/badge-72.png
 ---
 
 ## 4. 部署到 Cloudflare Pages
+
+> 📘 **要交给部署 Agent 或运维执行？直接用 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。**
+> 那份作业指导书包含：Agent 契约与禁止事项、参数表、逐条命令与期望输出、幂等校验、
+> 验收标准（含机器可判读的 `--json` 输出）、故障处置手册、回滚流程。
 
 ### 4.1 创建 D1 并初始化
 
@@ -721,6 +725,9 @@ npm run verify:live
 npm run verify:live -- --base https://pingcard.pages.dev \
   --notify-secret "$NOTIFY_SECRET" --admin-secret "$ADMIN_SECRET" --user zhangsan
 ```
+
+加 `--json` 可输出机器可判读的结果（`{ ok, passed, failed, skipped, results[] }`，退出码 0/1），
+便于部署 Agent 或 CI 直接断言。
 
 检查项（23 项）：站点与 SW/字体可用、`/api/config` 的 VAPID 公钥是合法 P-256 点、
 `/api/notify` 与 `/api/card-image`、`/api/users` 对未授权请求分别返回 401/403、
