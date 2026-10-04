@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PingCard · 通知设置</title>
+    <meta name="description" content="PingCard — 开启浏览器推送通知并获取你的 User ID" />
+    <meta name="theme-color" content="#0f172a" />
+    <link rel="icon" href="/icons/favicon.png" />
+    <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <style>
+      :root {
+        color-scheme: dark light;
+        --bg: #f6f7fb;
+        --card: #ffffff;
+        --fg: #14161c;
+        --muted: #5c6472;
+        --accent: #2563eb;
+        --accent-strong: #1d4ed8;
+        --ok: #059669;
+        --warn: #b45309;
+        --err: #dc2626;
+        --border: #e3e6ee;
+        --radius: 14px;
+        --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 8px 24px -12px rgba(16, 24, 40, 0.18);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0b0f1a;
+          --card: #131826;
+          --fg: #eef2f8;
+          --muted: #98a2b3;
+          --border: #232a3b;
+          --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 12px 32px -16px rgba(0, 0, 0, 0.7);
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 28px 16px 56px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC',
+          'Microsoft YaHei', Roboto, Helvetica, Arial, sans-serif;
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap { max-width: 620px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+      header { display: flex; align-items: center; gap: 12px; }
+      header img { width: 40px; height: 40px; border-radius: 10px; }
+      h1 { font-size: 20px; margin: 0; letter-spacing: 0.2px; }
+      header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        padding: 18px;
+      }
+      .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase; }
+      label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+      .row { display: flex; gap: 8px; }
+      input[type='text'] {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px;
+        font-size: 15px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        color: var(--fg);
+        background: transparent;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+      }
+      input[type='text']:focus { outline: 2px solid color-mix(in srgb, var(--accent) 45%, transparent); border-color: var(--accent); }
+      button {
+        font: inherit;
+        font-size: 14px;
+        padding: 10px 16px;
+        border-radius: 10px;
+        border: 1px solid var(--border);
+        background: var(--card);
+        color: var(--fg);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: transform 0.05s ease, background 0.15s ease;
+      }
+      button:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+      button:active:not(:disabled) { transform: translateY(1px); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.primary:hover:not(:disabled) { background: var(--accent-strong); }
+      button.danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 35%, var(--border)); }
+      .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+      .hint { font-size: 12.5px; color: var(--muted); margin: 10px 0 0; }
+      .status {
+        display: flex; align-items: center; gap: 8px; font-size: 14px; padding: 10px 12px;
+        border-radius: 10px; border: 1px dashed var(--border); background: transparent;
+      }
+      .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+      .dot.on { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent); }
+      .dot.off { background: var(--err); }
+      .dot.warn { background: var(--warn); }
+      .stat { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); padding: 4px 0; }
+      .stat b { color: var(--fg); font-weight: 600; }
+      .feedback { font-size: 13.5px; border-radius: 10px; padding: 10px 12px; display: none; }
+      .feedback.show { display: block; }
+      .feedback.info { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--accent-strong); }
+      .feedback.ok { background: color-mix(in srgb, var(--ok) 12%, transparent); color: var(--ok); }
+      .feedback.err { background: color-mix(in srgb, var(--err) 12%, transparent); color: var(--err); }
+      .feedback.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: var(--warn); }
+      details { font-size: 13px; color: var(--muted); }
+      details summary { cursor: pointer; color: var(--accent); }
+      pre {
+        overflow-x: auto; font-size: 12px; padding: 12px; border-radius: 10px;
+        background: color-mix(in srgb, var(--fg) 5%, transparent); border: 1px solid var(--border);
+      }
+      code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      footer { text-align: center; font-size: 12px; color: var(--muted); }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <img src="/icons/icon-192.png" alt="PingCard" />
+        <div>
+          <h1>PingCard</h1>
+          <p>开启浏览器推送通知，即可接收带大图卡片的通知消息</p>
+        </div>
+      </header>
+
+      <section class="card">
+        <h2>我的 User ID</h2>
+        <label for="userId">把这个 ID 告诉推送方，即可只给你发送定向通知</label>
+        <div class="row">
+          <input id="userId" type="text" spellcheck="false" autocomplete="off" maxlength="64" />
+          <button id="copyBtn" type="button" title="复制 User ID">复制</button>
+          <button id="saveBtn" type="button" title="保存自定义 ID">保存</button>
+        </div>
+        <p class="hint">支持 2–64 位字母、数字、下划线与连字符；修改后会同步更新本设备的订阅记录。</p>
+      </section>
+
+      <section class="card">
+        <h2>通知状态</h2>
+        <div class="status"><span class="dot" id="statusDot"></span><span id="statusText">正在检测…</span></div>
+        <div style="margin-top: 10px">
+          <div class="stat"><span>浏览器通知权限</span><b id="permText">检测中</b></div>
+          <div class="stat"><span>本 ID 已订阅设备数</span><b id="deviceText">—</b></div>
+          <div class="stat"><span>Service Worker</span><b id="swText">检测中</b></div>
+        </div>
+        <div class="actions">
+          <button id="enableBtn" class="primary" type="button">开启通知</button>
+          <button id="disableBtn" class="danger" type="button">关闭通知</button>
+          <button id="refreshBtn" type="button">刷新状态</button>
+          <button id="testBtn" type="button">发送测试通知</button>
+        </div>
+        <div class="feedback" id="feedback" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card">
+        <h2>使用说明</h2>
+        <details>
+          <summary>iOS / iPadOS 需要先「添加到主屏幕」</summary>
+          <p class="hint">
+            Safari 自 iOS 16.4 起支持 Web Push，但只有把本站添加到主屏幕并以 PWA 方式打开后才可用。
+            操作：分享按钮 → 添加到主屏幕 → 从主屏幕图标打开本页 → 点击「开启通知」。
+          </p>
+        </details>
+        <details style="margin-top: 10px">
+          <summary>调用推送接口（curl 示例）</summary>
+          <pre><code>curl -X POST https://your-domain/api/notify \
+  -H "Authorization: Bearer $NOTIFY_SECRET" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "'"$(echo $USER_ID)"'",
+    "templateId": "t_demo",
+    "variables": { "title": "服务器告警", "body": "CPU 使用率超过 90%" }
+  }'</code></pre>
+        </details>
+      </section>
+
+      <footer>
+        PingCard · Cloudflare Pages + D1 + Web Push ·
+        <a href="/admin/templates">模板管理后台</a>
+      </footer>
+    </div>
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
