@@ -1,0 +1,33 @@
+# PingCard — Cloudflare Pages + Pages Functions + D1
+#
+# Deploy:  npm run deploy        (wrangler pages deploy public)
+# Dev:     npm run dev           (wrangler pages dev public)
+#
+# Secrets are NOT stored here (never commit them):
+#   wrangler pages secret put VAPID_PUBLIC_KEY  --project-name pingcard
+#   wrangler pages secret put VAPID_PRIVATE_KEY --project-name pingcard
+#   wrangler pages secret put VAPID_SUBJECT     --project-name pingcard
+#   wrangler pages secret put NOTIFY_SECRET     --project-name pingcard
+#   wrangler pages secret put ADMIN_SECRET      --project-name pingcard
+
+name = "pingcard"
+pages_build_output_dir = "public"
+compatibility_date = "2025-09-01"
+# `nodejs_compat` is deliberately NOT enabled: PingCard only uses Web APIs, and
+# enabling the flag is *not* what makes third-party libraries work (see README).
+
+# Non-secret defaults. Override per environment as needed.
+[vars]
+DEFAULT_ICON_URL = "/icons/icon-192.png"
+DEFAULT_BADGE_URL = "/icons/badge-72.png"
+
+# D1 database (subscriptions / templates / notify_logs).
+# Create it once:  wrangler d1 create pingcard
+# then paste the printed database_id below (or run: npx wrangler d1 create pingcard --update-config)
+[[d1_databases]]
+binding = "DB"
+database_name = "pingcard"
+database_id = "00000000-0000-0000-0000-000000000000" # ← replace with your own id
+
+# Local development only: `wrangler pages dev` seeds D1 from this file via
+# `npm run db:local` (see package.json).

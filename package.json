@@ -1,0 +1,34 @@
+{
+  "name": "pingcard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "PingCard — 部署在 Cloudflare Pages 上的轻量级浏览器推送通知系统（Web Push + 动态卡片渲染）",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler pages dev public",
+    "deploy": "wrangler pages deploy public",
+    "build:fonts": "node scripts/build-fonts.mjs",
+    "vapid:keys": "node scripts/vapid-keys.mjs",
+    "icons": "node scripts/make-icons.mjs",
+    "db:create": "wrangler d1 create pingcard",
+    "db:local": "wrangler d1 execute pingcard --local --file=./schema.sql",
+    "db:remote": "wrangler d1 execute pingcard --remote --file=./schema.sql",
+    "logs": "wrangler pages deployment tail",
+    "test": "node --test test/unit.test.mjs",
+    "smoke": "node scripts/smoke.mjs",
+    "verify:live": "node scripts/verify-live.mjs"
+  },
+  "dependencies": {
+    "@cf-wasm/satori": "^0.4.2",
+    "@resvg/resvg-wasm": "^2.6.2",
+    "satori-html": "^0.3.2"
+  },
+  "devDependencies": {
+    "http_ece": "^1.2.1",
+    "subset-font": "^2.9.0",
+    "wrangler": "^4.147.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

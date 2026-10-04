@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PingCard · 模板管理后台</title>
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="/icons/favicon.png" />
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #0b0f1a;
+        --panel: #131826;
+        --panel-2: #171d2e;
+        --fg: #eef2f8;
+        --muted: #98a2b3;
+        --border: #232a3b;
+        --accent: #3b82f6;
+        --accent-2: #60a5fa;
+        --ok: #10b981;
+        --warn: #f59e0b;
+        --err: #ef4444;
+        --radius: 12px;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0; background: var(--bg); color: var(--fg); min-height: 100vh;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans SC', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
+        font-size: 14px; line-height: 1.55;
+      }
+      a { color: var(--accent-2); }
+      header.top {
+        display: flex; align-items: center; justify-content: space-between; gap: 16px;
+        padding: 14px 20px; border-bottom: 1px solid var(--border); background: var(--panel);
+        position: sticky; top: 0; z-index: 20; flex-wrap: wrap;
+      }
+      header.top .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; }
+      header.top .brand img { width: 26px; height: 26px; border-radius: 7px; }
+      header.top .tools { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+      main { display: grid; grid-template-columns: minmax(320px, 1fr) minmax(420px, 1.15fr); gap: 16px; padding: 16px; align-items: start; }
+      @media (max-width: 1080px) { main { grid-template-columns: 1fr; } }
+      .panel { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+      .panel h2 { margin: 0 0 12px; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+      button {
+        font: inherit; padding: 8px 13px; border-radius: 9px; border: 1px solid var(--border);
+        background: var(--panel-2); color: var(--fg); cursor: pointer; white-space: nowrap;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: 0.5; cursor: not-allowed; }
+      button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+      button.ghost { background: transparent; }
+      button.danger { color: var(--err); border-color: color-mix(in srgb, var(--err) 45%, var(--border)); }
+      button.tiny { padding: 5px 9px; font-size: 12.5px; border-radius: 7px; }
+      input, textarea, select {
+        font: inherit; width: 100%; padding: 9px 11px; border-radius: 9px;
+        border: 1px solid var(--border); background: #0e1421; color: var(--fg);
+      }
+      input:focus, textarea:focus { outline: 2px solid color-mix(in srgb, var(--accent) 40%, transparent); }
+      textarea { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.6; resize: vertical; }
+      label.field { display: block; margin-bottom: 12px; }
+      label.field span { display: block; font-size: 12.5px; color: var(--muted); margin-bottom: 5px; }
+      .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+      .grid3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px; }
+      .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .muted { color: var(--muted); }
+      .small { font-size: 12.5px; }
+      .list { display: flex; flex-direction: column; gap: 8px; }
+      .item {
+        display: grid; grid-template-columns: 96px 1fr auto; gap: 12px; align-items: center;
+        padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+      }
+      .item.active { border-color: var(--accent); }
+      .item img { width: 96px; height: 48px; object-fit: cover; border-radius: 6px; background: #0a0f1c; border: 1px solid var(--border); }
+      .badge { display: inline-block; font-size: 11px; padding: 1px 7px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); }
+      .badge.default { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--border)); }
+      .status-list { display: flex; flex-direction: column; gap: 6px; }
+      .status-row { display: flex; gap: 8px; align-items: flex-start; font-size: 13px; }
+      .pill { flex: none; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); min-width: 46px; text-align: center; }
+      .pill.ok { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, var(--border)); }
+      .pill.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 50%, var(--border)); }
+      .pill.fail { color: var(--err); border-color: color-mix(in srgb, var(--err) 50%, var(--border)); }
+      .messages { margin-top: 10px; display: flex; flex-direction: column; gap: 6px; }
+      .msg { font-size: 12.5px; padding: 8px 10px; border-radius: 8px; }
+      .msg.err { background: color-mix(in srgb, var(--err) 14%, transparent); color: #fecaca; }
+      .msg.warn { background: color-mix(in srgb, var(--warn) 14%, transparent); color: #fde68a; }
+      .msg.ok { background: color-mix(in srgb, var(--ok) 14%, transparent); color: #a7f3d0; }
+      .preview-wrap { background: #0a0f1c; border: 1px solid var(--border); border-radius: 10px; padding: 10px; text-align: center; }
+      .preview-wrap img { max-width: 100%; border-radius: 8px; display: block; margin: 0 auto; }
+      .modal {
+        position: fixed; inset: 0; background: rgba(3, 6, 14, 0.72); display: none;
+        align-items: center; justify-content: center; padding: 20px; z-index: 50;
+      }
+      .modal.show { display: flex; }
+      .modal .box { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 22px; max-width: 420px; width: 100%; }
+      .hide { display: none !important; }
+      pre { margin: 0; overflow-x: auto; font-size: 12px; }
+      code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+      table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--border); }
+      th { color: var(--muted); font-weight: 500; font-size: 12px; }
+    </style>
+  </head>
+  <body>
+    <header class="top">
+      <div class="brand">
+        <img src="/icons/icon-192.png" alt="" />
+        <span>PingCard 模板管理后台</span>
+      </div>
+      <div class="tools">
+        <button id="checklistBtn" class="ghost" type="button">运行环境自检</button>
+        <button id="usersBtn" class="ghost" type="button">订阅用户</button>
+        <a class="muted small" href="/" target="_blank" rel="noopener">通知设置页 ↗</a>
+        <button id="logoutBtn" class="ghost small hide" type="button">退出登录</button>
+      </div>
+    </header>
+
+    <!-- ---------------------------------------------------------------- login -->
+    <main id="loginPanel" class="hide" style="display: block; padding: 60px 20px">
+      <div class="panel" style="max-width: 420px; margin: 0 auto">
+        <h2>管理员登录</h2>
+        <p class="muted small">
+          输入 <code>ADMIN_SECRET</code> 换取一个 12 小时有效的会话 Cookie。密钥只发送到本服务后端校验，不会写入 localStorage。
+        </p>
+        <label class="field">
+          <span>ADMIN_SECRET</span>
+          <input id="secretInput" type="password" autocomplete="current-password" placeholder="粘贴管理密钥" />
+        </label>
+        <button id="loginBtn" class="primary" type="button">登录</button>
+        <div id="loginError" class="messages"></div>
+      </div>
+    </main>
+
+    <!-- ------------------------------------------------------------ workspace -->
+    <main id="workspace" class="hide">
+      <section class="panel">
+        <h2>模板列表</h2>
+        <div class="row" style="margin-bottom: 12px">
+          <button id="newBtn" class="primary" type="button">新建模板</button>
+          <button id="reloadBtn" type="button">刷新列表</button>
+          <button id="seedBtn" type="button">插入内置示例模板</button>
+        </div>
+        <div id="templateList" class="list"></div>
+
+        <div id="checklistBox" class="hide" style="margin-top: 18px">
+          <h2>运行环境自检</h2>
+          <div id="checklistResult" class="status-list"></div>
+        </div>
+
+        <div id="usersBox" class="hide" style="margin-top: 18px">
+          <h2>订阅用户</h2>
+          <div id="usersResult"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>模板编辑器</h2>
+        <div id="editorEmpty" class="muted small">从左侧选择一个模板，或点击「新建模板」。</div>
+
+        <div id="editor" class="hide">
+          <div class="grid3">
+            <label class="field"><span>名称</span><input id="fName" type="text" /></label>
+            <label class="field"><span>宽度 (px)</span><input id="fWidth" type="number" min="32" max="2000" /></label>
+            <label class="field"><span>高度 (px)</span><input id="fHeight" type="number" min="32" max="2000" /></label>
+          </div>
+          <div class="grid2">
+            <label class="field"><span>模板 ID（新建时可自定义，建议英文 slug）</span><input id="fId" type="text" /></label>
+            <label class="field"><span>状态</span><input id="fState" type="text" readonly /></label>
+          </div>
+
+          <label class="field">
+            <span>HTML 模板（内联 style，使用 {{变量名}} 或 {{变量名|默认值}}）</span>
+            <textarea id="fHtml" rows="14" spellcheck="false"></textarea>
+          </label>
+
+          <div class="row" style="margin-bottom: 12px">
+            <button id="lintBtn" class="tiny" type="button">解析检查</button>
+            <button id="schemaBtn" class="tiny" type="button">根据占位符生成 variables_schema</button>
+            <span class="muted small" id="placeholderHint"></span>
+          </div>
+
+          <label class="field">
+            <span>variables_schema（JSON，用于自动生成变量测试面板与必填校验）</span>
+            <textarea id="fSchema" rows="6" spellcheck="false" placeholder='{ "title": { "type": "string", "required": true, "label": "标题" } }'></textarea>
+          </label>
+
+          <h2>变量测试面板</h2>
+          <div id="varPanel" class="grid2 small muted">填写上方 schema 或模板占位符后自动生成。</div>
+
+          <div class="row" style="margin-top: 14px">
+            <button id="saveBtn" class="primary" type="button">保存模板</button>
+            <button id="previewBtn" type="button">刷新预览</button>
+            <button id="setDefaultBtn" class="ghost" type="button">设为默认模板</button>
+            <button id="deleteBtn" class="danger" type="button">删除模板</button>
+          </div>
+          <div id="editorMessages" class="messages"></div>
+        </div>
+
+        <h2 style="margin-top: 18px">实时预览</h2>
+        <div class="preview-wrap">
+          <img id="previewImg" alt="卡片预览" />
+          <div class="muted small" id="previewMeta" style="margin-top: 8px">尚未渲染</div>
+        </div>
+      </section>
+    </main>
+
+    <!-- ---------------------------------------------------------------- modal -->
+    <div class="modal" id="confirmModal">
+      <div class="box">
+        <h2 style="margin-top: 0">确认操作</h2>
+        <p id="confirmText" class="small"></p>
+        <div class="row" style="justify-content: flex-end; margin-top: 16px">
+          <button id="confirmCancel" class="ghost" type="button">取消</button>
+          <button id="confirmOk" class="danger" type="button">确认删除</button>
+        </div>
+      </div>
+    </div>
+
+    <script src="/admin/admin.js" type="module"></script>
+  </body>
+</html>
